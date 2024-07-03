@@ -4,7 +4,7 @@
 module Set7 where
 
 import Data.List
-import Data.List.NonEmpty (NonEmpty ((:|)), reverse)
+import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty, reverse)
 import Data.Monoid
 import Data.Semigroup
 import Mooc.Todo
@@ -103,21 +103,15 @@ data State = Start | Error | Finished | Mixed | Egged | Floured | Sugared | Flou
   deriving (Eq, Show)
 
 step :: State -> Event -> State
-step Error _ = Error
 step Finished _ = Finished
 step Mixed Bake = Finished
-step Mixed _ = Error
 step Start AddEggs = Egged
-step Start _ = Error
 step Egged AddFlour = Floured
 step Egged AddSugar = Sugared
-step Egged _ = Error
 step Sugared AddFlour = FlouredAndSugared
-step Sugared _ = Error
 step Floured AddSugar = FlouredAndSugared
-step Floured _ = Error
 step FlouredAndSugared Mix = Mixed
-step FlouredAndSugared _ = Error
+step _ _ = Error
 
 -- do not edit this
 bake :: [Event] -> State
@@ -146,7 +140,9 @@ average nempty = sum nempty / fromIntegral (length nempty)
 -- PS. The Data.List.NonEmpty type has been imported for you
 
 reverseNonEmpty :: NonEmpty a -> NonEmpty a
-reverseNonEmpty nempty = Data.List.NonEmpty.reverse nempty
+reverseNonEmpty m@(x :| xs) = case Data.List.reverse xs of
+  [] -> m
+  (y : ys) -> y :| (ys ++ [x])
 
 ------------------------------------------------------------------------------
 -- Ex 6: implement Semigroup instances for the Distance, Time and
@@ -179,7 +175,7 @@ instance Semigroup Velocity where
 
 instance (Ord a) => Semigroup (Set a) where
   (<>) :: (Ord a) => Set a -> Set a -> Set a
-  Set xs <> b = foldr (\x acc -> add x acc) b xs
+  Set xs <> b = foldr add b xs
 
 instance (Ord a) => Monoid (Set a) where
   mempty :: (Ord a) => Set a
@@ -298,31 +294,25 @@ passwordAllowed p (Or r q) = passwordAllowed p r || passwordAllowed p q
 --     ==> "(3*(1+1))"
 --
 
-data Arithmetic = Basic Integer | Nested Arithmetic PlusOrTimes Arithmetic
-
-data PlusOrTimes = Plus | Times
-
-instance Show PlusOrTimes where
-  show :: PlusOrTimes -> String
-  show Plus = "+"
-  show Times = "*"
+data Arithmetic = Literal Integer | Plus Arithmetic Arithmetic | Times Arithmetic Arithmetic
 
 instance Show Arithmetic where
   show :: Arithmetic -> String
-  show (Basic i) = show i
-  show (Nested x p y) = "(" ++ show x ++ show p ++ show y ++ ")"
+  show (Literal i) = show i
+  show (Plus x y) = "(" ++ show x ++ "+" ++ show y ++ ")"
+  show (Times x y) = "(" ++ show x ++ "*" ++ show y ++ ")"
 
 literal :: Integer -> Arithmetic
-literal = Basic
+literal = Literal
 
 operation :: String -> Arithmetic -> Arithmetic -> Arithmetic
-operation "+" a b = Nested a Plus b
-operation "*" a b = Nested a Times b
+operation "+" a b = Plus a b
+operation "*" a b = Times a b
 
 evaluate :: Arithmetic -> Integer
-evaluate (Basic i) = i
-evaluate (Nested x Plus y) = evaluate x + evaluate y
-evaluate (Nested x Times y) = evaluate x * evaluate y
+evaluate (Literal i) = i
+evaluate (Plus x y) = evaluate x + evaluate y
+evaluate (Times x y) = evaluate x * evaluate y
 
 render :: Arithmetic -> String
 render = show
