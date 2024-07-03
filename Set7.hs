@@ -1,4 +1,5 @@
 -- Exercise set 7
+{-# LANGUAGE InstanceSigs #-}
 
 module Set7 where
 
@@ -53,12 +54,17 @@ emptySet = Set []
 
 -- member tests if an element is in a set
 member :: (Eq a) => a -> Set a -> Bool
-member n (Set (x : xs)) = if n == x then True else member n (Set xs)
-member _ emptySet = False
+member n (Set s) = elem n s
 
 -- add a member to a set
-add :: (Eq a, Ord a) => a -> Set a -> Set a
-add n s = if member n s then s else case s of Set xs -> Set (sort (n : xs))
+add :: (Ord a) => a -> Set a -> Set a
+add n (Set s) = Set $ add' s
+  where
+    add' [] = [n]
+    add' m@(y : ys)
+      | n == y = m
+      | n < y = n : m
+      | otherwise = y : add' ys
 
 ------------------------------------------------------------------------------
 -- Ex 3: a state machine for baking a cake. The type Event represents
@@ -152,6 +158,17 @@ reverseNonEmpty nempty = Data.List.NonEmpty.reverse nempty
 -- velocity (Distance 50 <> Distance 10) (Time 1 <> Time 2)
 --    ==> Velocity 20
 
+instance Semigroup Distance where
+  (<>) :: Distance -> Distance -> Distance
+  Distance d <> Distance e = Distance (d + e)
+
+instance Semigroup Time where
+  (<>) :: Time -> Time -> Time
+  Time t <> Time z = Time (t + z)
+
+instance Semigroup Velocity where
+  Velocity v <> Velocity w = Velocity (v + w)
+
 ------------------------------------------------------------------------------
 -- Ex 7: implement a Monoid instance for the Set type from exercise 2.
 -- The (<>) operation should be the union of sets.
@@ -159,6 +176,14 @@ reverseNonEmpty nempty = Data.List.NonEmpty.reverse nempty
 -- What's the right definition for mempty?
 --
 -- What are the class constraints for the instances?
+
+instance (Ord a) => Semigroup (Set a) where
+  (<>) :: (Ord a) => Set a -> Set a -> Set a
+  Set xs <> b = foldr (\x acc -> add x acc) b xs
+
+instance (Ord a) => Monoid (Set a) where
+  mempty :: (Ord a) => Set a
+  mempty = emptySet
 
 ------------------------------------------------------------------------------
 -- Ex 8: below you'll find two different ways of representing
@@ -182,14 +207,18 @@ reverseNonEmpty nempty = Data.List.NonEmpty.reverse nempty
 data Operation1
   = Add1 Int Int
   | Subtract1 Int Int
+  | Multiply1 Int Int
   deriving (Show)
 
 compute1 :: Operation1 -> Int
 compute1 (Add1 i j) = i + j
 compute1 (Subtract1 i j) = i - j
+compute1 (Multiply1 i j) = i * j
 
 show1 :: Operation1 -> String
-show1 = todo
+show1 (Add1 x y) = show x ++ "+" ++ show y
+show1 (Subtract1 x y) = show x ++ "-" ++ show y
+show1 (Multiply1 x y) = show x ++ "*" ++ show y
 
 data Add2 = Add2 Int Int
   deriving (Show)
@@ -197,14 +226,24 @@ data Add2 = Add2 Int Int
 data Subtract2 = Subtract2 Int Int
   deriving (Show)
 
+data Multiply2 = Multiply2 Int Int
+  deriving (Show)
+
 class Operation2 op where
   compute2 :: op -> Int
+  show2 :: op -> String
 
 instance Operation2 Add2 where
   compute2 (Add2 i j) = i + j
+  show2 (Add2 i j) = show i ++ "+" ++ show j
 
 instance Operation2 Subtract2 where
   compute2 (Subtract2 i j) = i - j
+  show2 (Subtract2 i j) = show i ++ "-" ++ show j
+
+instance Operation2 Multiply2 where
+  compute2 (Multiply2 i j) = i * j
+  show2 (Multiply2 i j) = show i ++ "*" ++ show j
 
 ------------------------------------------------------------------------------
 -- Ex 9: validating passwords. Below you'll find a type
@@ -233,7 +272,11 @@ data PasswordRequirement
   deriving (Show)
 
 passwordAllowed :: String -> PasswordRequirement -> Bool
-passwordAllowed = todo
+passwordAllowed p (MinimumLength m) = length p >= m
+passwordAllowed p (ContainsSome s) = any (flip elem p) s
+passwordAllowed p (DoesNotContain s) = not $ passwordAllowed p (ContainsSome s)
+passwordAllowed p (And r q) = passwordAllowed p r && passwordAllowed p q
+passwordAllowed p (Or r q) = passwordAllowed p r || passwordAllowed p q
 
 ------------------------------------------------------------------------------
 -- Ex 10: a DSL for simple arithmetic expressions with addition and
@@ -255,17 +298,31 @@ passwordAllowed = todo
 --     ==> "(3*(1+1))"
 --
 
-data Arithmetic = Todo
-  deriving (Show)
+data Arithmetic = Basic Integer | Nested Arithmetic PlusOrTimes Arithmetic
+
+data PlusOrTimes = Plus | Times
+
+instance Show PlusOrTimes where
+  show :: PlusOrTimes -> String
+  show Plus = "+"
+  show Times = "*"
+
+instance Show Arithmetic where
+  show :: Arithmetic -> String
+  show (Basic i) = show i
+  show (Nested x p y) = "(" ++ show x ++ show p ++ show y ++ ")"
 
 literal :: Integer -> Arithmetic
-literal = todo
+literal = Basic
 
 operation :: String -> Arithmetic -> Arithmetic -> Arithmetic
-operation = todo
+operation "+" a b = Nested a Plus b
+operation "*" a b = Nested a Times b
 
 evaluate :: Arithmetic -> Integer
-evaluate = todo
+evaluate (Basic i) = i
+evaluate (Nested x Plus y) = evaluate x + evaluate y
+evaluate (Nested x Times y) = evaluate x * evaluate y
 
 render :: Arithmetic -> String
-render = todo
+render = show
