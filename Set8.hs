@@ -1,3 +1,5 @@
+{-# LANGUAGE InstanceSigs #-}
+
 module Set8 where
 
 -- This is the final project for Introduction to Functional
@@ -65,7 +67,7 @@ justADot = Picture f
 
 -- Here's a picture that's just a solid color
 solid :: Color -> Picture
-solid color = Picture (\coord -> color)
+solid color = Picture (const color)
 
 -- Here's a simple picture:
 examplePicture1 = Picture f
@@ -122,6 +124,7 @@ renderList picture (minx, maxx) (miny, maxy) =
 -- [["000000","000000","000000"],
 --  ["000000","ffffff","000000"],
 --  ["000000","000000","000000"]]
+renderListExample :: [[String]]
 renderListExample = renderList justADot (9, 11) (9, 11)
 
 ------------------------------------------------------------------------------
@@ -139,11 +142,13 @@ renderListExample = renderList justADot (9, 11) (9, 11)
 --      ["000000","000000","000000"]]
 
 dotAndLine :: Picture
-dotAndLine = Picture f
-  where
-    f (Coord 3 4) = white
-    f (Coord _ 8) = pink
-    f _ = black
+dotAndLine =
+  Picture
+    ( \crd -> case crd of
+        (Coord 3 4) -> white
+        (Coord _ 8) -> pink
+        _ -> black
+    )
 
 ------------------------------------------------------------------------------
 
@@ -182,9 +187,7 @@ blendColor (Color r1 g1 b1) (Color r2 g2 b2) = Color (mid r1 r2) (mid g1 g2) (mi
     mid a b = div (a + b) 2
 
 combine :: (Color -> Color -> Color) -> Picture -> Picture -> Picture
-combine cf (Picture pf1) (Picture pf2) = Picture f
-  where
-    f crd = cf (pf1 crd) (pf2 crd)
+combine f (Picture p1) (Picture p2) = Picture (\c -> f (p1 c) (p2 c))
 
 ------------------------------------------------------------------------------
 
@@ -207,26 +210,18 @@ contains (Shape f) x y = f (Coord x y)
 -- in a given position.
 
 dot :: Int -> Int -> Shape
-dot x y = Shape f
-  where
-    f (Coord cx cy) = (x == cx) && (y == cy)
+dot x y = Shape (\(Coord a b) -> a == x && b == y)
 
 -- Here's the definitions of a circle
 
 circle :: Int -> Int -> Int -> Shape
-circle r cx cy = Shape f
-  where
-    f (Coord x y) = (x - cx) ^ 2 + (y - cy) ^ 2 < r ^ 2
+circle r x y = Shape (\(Coord a b) -> (a - x) ^ 2 + (b - y) ^ 2 < r ^ 2)
 
 -- To be able to draw a Shape we need to convert it to a Picture.
 -- Here's one way: fill the shape with a given color.
 
 fill :: Color -> Shape -> Picture
-fill c (Shape f) = Picture g
-  where
-    g coord
-      | f coord = c
-      | otherwise = black
+fill color (Shape shape) = Picture (\c -> if shape c then color else black)
 
 -- Here's a picture of a red circle. You can see it by running
 --   render exampleCircle 400 300 "circle.png"
@@ -259,7 +254,7 @@ exampleCircle = fill red (circle 80 100 200)
 --        ["000000","000000","000000","000000","000000","000000"]]
 
 rectangle :: Int -> Int -> Int -> Int -> Shape
-rectangle x0 y0 w h = todo
+rectangle x y w h = Shape (\(Coord a b) -> a - x >= 0 && a - x < w && b - y >= 0 && b - y < h)
 
 ------------------------------------------------------------------------------
 
@@ -276,10 +271,10 @@ rectangle x0 y0 w h = todo
 -- shape.
 
 union :: Shape -> Shape -> Shape
-union = todo
+union (Shape f) (Shape g) = Shape (\c -> f c || g c)
 
 cut :: Shape -> Shape -> Shape
-cut = todo
+cut (Shape f) (Shape g) = Shape (\c -> f c && not (g c))
 
 ------------------------------------------------------------------------------
 
@@ -309,7 +304,7 @@ exampleSnowman = fill white snowman
 --        ["000000","000000","000000"]]
 
 paintSolid :: Color -> Shape -> Picture -> Picture
-paintSolid color shape base = todo
+paintSolid color (Shape shape) (Picture base) = Picture (\c -> if shape c then color else base c)
 
 ------------------------------------------------------------------------------
 
@@ -360,7 +355,7 @@ stripes a b = Picture f
 --       ["000000","000000","000000","000000","000000"]]
 
 paint :: Picture -> Shape -> Picture -> Picture
-paint pat shape base = todo
+paint (Picture pattern) (Shape shape) (Picture base) = Picture (\c -> if shape c then pattern c else base c)
 
 ------------------------------------------------------------------------------
 
@@ -378,7 +373,7 @@ examplePatterns = (paint (solid black) hat . paint (stripes red yellow) legs . p
 -- Let's implement zooming and flipping images.
 
 flipCoordXY :: Coord -> Coord
-flipCoordXY (Coord x y) = (Coord y x)
+flipCoordXY (Coord x y) = Coord y x
 
 -- Flip a picture by switching x and y coordinates
 flipXY :: Picture -> Picture
@@ -393,6 +388,7 @@ zoom z (Picture f) = Picture (f . zoomCoord z)
 
 -- Here are some large vertical stripes. See them by running
 --   render largeVerticalStripes 400 300 "large-stripes.png"
+largeVerticalStripes :: Picture
 largeVerticalStripes = zoom 5 (flipXY (stripes red yellow))
 
 -- To support all sorts of image transforms let's use a type class
@@ -426,19 +422,30 @@ xy = Picture f
 data Fill = Fill Color
 
 instance Transform Fill where
-  apply = todo
+  apply :: Fill -> Picture -> Picture
+  apply (Fill color) _ = Picture (const color)
 
 data Zoom = Zoom Int
   deriving (Show)
 
 instance Transform Zoom where
-  apply = todo
+  apply :: Zoom -> Picture -> Picture
+  apply (Zoom scale) = zoom scale
 
 data Flip = FlipX | FlipY | FlipXY
   deriving (Show)
 
+flipCoordX :: Coord -> Coord
+flipCoordX (Coord x y) = Coord (-x) y
+
+flipCoordY :: Coord -> Coord
+flipCoordY (Coord x y) = Coord x (-y)
+
 instance Transform Flip where
-  apply = todo
+  apply :: Flip -> Picture -> Picture
+  apply FlipXY p = flipXY p
+  apply FlipX (Picture picture) = Picture (picture . flipCoordX)
+  apply FlipY (Picture picture) = Picture (picture . flipCoordY)
 
 ------------------------------------------------------------------------------
 
@@ -454,8 +461,9 @@ instance Transform Flip where
 data Chain a b = Chain a b
   deriving (Show)
 
-instance Transform (Chain a b) where
-  apply = todo
+instance (Transform a, Transform b) => Transform (Chain a b) where
+  apply :: (Transform a) => Chain a b -> Picture -> Picture
+  apply (Chain t1 t2) p = apply t1 $ apply t2 p
 
 ------------------------------------------------------------------------------
 
@@ -493,8 +501,27 @@ checkered = flipBlend largeVerticalStripes2
 data Blur = Blur
   deriving (Show)
 
+neighbors :: Coord -> [Coord]
+neighbors (Coord x y) = [Coord x y, Coord x (y - 1), Coord x (y + 1), Coord (x + 1) y, Coord (x - 1) y]
+
+sumColors :: [Color] -> Color
+sumColors colors = go (Color 0 0 0) colors
+  where
+    go acc [] = acc
+    go (Color ar ag ab) ((Color cr cg cb) : cs) = go (Color (ar + cr) (ag + cg) (ab + cb)) cs
+
+divideColor :: Int -> Color -> Color
+divideColor n (Color r g b) = Color (div r n) (div g n) (div b n)
+
+averageColors :: [Color] -> Color
+averageColors colors = divideColor (length colors) (sumColors colors)
+
+blurrer :: Coord -> Picture -> Color
+blurrer coord (Picture picture) = averageColors (map picture (neighbors coord))
+
 instance Transform Blur where
-  apply = todo
+  apply :: Blur -> Picture -> Picture
+  apply Blur picture = Picture (\c -> blurrer c picture)
 
 ------------------------------------------------------------------------------
 
@@ -513,7 +540,8 @@ data BlurMany = BlurMany Int
   deriving (Show)
 
 instance Transform BlurMany where
-  apply = todo
+  apply (BlurMany 0) p = p
+  apply (BlurMany n) p = apply (BlurMany (n - 1)) (apply Blur p)
 
 ------------------------------------------------------------------------------
 
