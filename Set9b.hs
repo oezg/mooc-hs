@@ -1,8 +1,9 @@
 module Set9b where
 
-import Mooc.Todo
-
+import Data.Array (array)
 import Data.List
+import qualified Data.Map as Map
+import Mooc.Todo
 
 --------------------------------------------------------------------------------
 -- Ex 1: In this exercise set, we'll solve the N Queens problem step by step.
@@ -42,15 +43,17 @@ import Data.List
 -- the roles of different function arguments clearer without adding syntactical
 -- overhead:
 
-type Row   = Int
-type Col   = Int
+type Row = Int
+
+type Col = Int
+
 type Coord = (Row, Col)
 
 nextRow :: Coord -> Coord
-nextRow (i,j) = todo
+nextRow (i, j) = (i + 1, 1)
 
 nextCol :: Coord -> Coord
-nextCol (i,j) = todo
+nextCol (i, j) = (i, j + 1)
 
 --------------------------------------------------------------------------------
 -- Ex 2: Implement the function prettyPrint that, given the size of
@@ -103,7 +106,10 @@ nextCol (i,j) = todo
 type Size = Int
 
 prettyPrint :: Size -> [Coord] -> String
-prettyPrint = todo
+prettyPrint rowNumber coordinates = intercalate "\n" rows ++ "\n"
+  where
+    rows = [onerow i | i <- [1 .. rowNumber]]
+    onerow i = [if elem (i, j) coordinates then 'Q' else '.' | j <- [1 .. rowNumber]]
 
 --------------------------------------------------------------------------------
 -- Ex 3: The task in this exercise is to define the relations sameRow, sameCol,
@@ -127,16 +133,16 @@ prettyPrint = todo
 --   sameAntidiag (500,5) (5,500) ==> True
 
 sameRow :: Coord -> Coord -> Bool
-sameRow (i,j) (k,l) = todo
+sameRow (i, _) (k, _) = i == k
 
 sameCol :: Coord -> Coord -> Bool
-sameCol (i,j) (k,l) = todo
+sameCol (_, j) (_, l) = j == l
 
 sameDiag :: Coord -> Coord -> Bool
-sameDiag (i,j) (k,l) = todo
+sameDiag (i, j) (k, l) = j - i == l - k
 
 sameAntidiag :: Coord -> Coord -> Bool
-sameAntidiag (i,j) (k,l) = todo
+sameAntidiag (i, j) (k, l) = i + j == k + l
 
 --------------------------------------------------------------------------------
 -- Ex 4: In chess, a queen may capture another piece in the same row, column,
@@ -188,7 +194,8 @@ sameAntidiag (i,j) (k,l) = todo
 -- https://en.wikipedia.org/wiki/Stack_(abstract_data_type)
 
 type Candidate = Coord
-type Stack     = [Coord]
+
+type Stack = [Coord]
 
 danger :: Candidate -> Stack -> Bool
 danger = todo
@@ -276,12 +283,16 @@ fixFirst n s = todo
 --------------------------------------------------------------------------------
 -- Ex 7: We need two helper functions for stack management.
 --
+
 -- * continue moves on to a new row. It pushes a new candidate to the
+
 --   top of the stack (front of the list). The new candidate should be
 --   at the beginning of the next row with respect to the queen
 --   previously on top of the stack.
 --
+
 -- * backtrack moves back to the previous row. It removes the top
+
 --   element of the stack, and adjusts the new top element so that it
 --   is in the next column.
 --
@@ -383,4 +394,4 @@ finish :: Size -> Stack -> Stack
 finish = todo
 
 solve :: Size -> Stack
-solve n = finish n [(1,1)]
+solve n = finish n [(1, 1)]

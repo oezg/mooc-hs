@@ -254,5 +254,24 @@ identity n = [0 .. n - 1]
 multiply :: Permutation -> Permutation -> Permutation
 multiply p q = map (\i -> p !! (q !! i)) (identity (length p))
 
+permutationToMapping :: Permutation -> [(Int, Int)]
+permutationToMapping permutation = go [] 0 permutation
+  where
+    go acc oi [] = reverse acc
+    go acc oi (ni : nis) = go ((ni, oi) : acc) (oi + 1) nis
+
+listToMapping :: [a] -> [(Int, a)]
+listToMapping liste = go [] 0 liste
+  where
+    go acc oi [] = reverse acc
+    go acc oi (e : es) = go ((oi, e) : acc) (oi + 1) es
+
+mappingToList :: [(Int, a)] -> [a]
+mappingToList mapping = map snd (sortOn fst mapping)
+
 permute :: Permutation -> [a] -> [a]
-permute = todo
+permute permutation liste =
+  let oiToE = listToMapping liste
+      niToOi = permutationToMapping permutation
+      niToE = compose niToOi oiToE
+   in mappingToList niToE
