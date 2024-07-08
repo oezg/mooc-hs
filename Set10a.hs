@@ -1,8 +1,8 @@
 module Set10a where
 
+import Codec.Picture.Metadata (Value (Double))
 import Data.Char
 import Data.List
-
 import Mooc.Todo
 
 ------------------------------------------------------------------------------
@@ -16,7 +16,8 @@ import Mooc.Todo
 --   take 10 (doublify [0..])  ==>  [0,0,1,1,2,2,3,3,4,4]
 
 doublify :: [a] -> [a]
-doublify = todo
+doublify [] = []
+doublify (x : xs) = x : x : doublify xs
 
 ------------------------------------------------------------------------------
 -- Ex 2: Implement the function interleave that takes two lists and
@@ -37,7 +38,9 @@ doublify = todo
 --   take 10 (interleave [1..] (repeat 0)) ==> [1,0,2,0,3,0,4,0,5,0]
 
 interleave :: [a] -> [a] -> [a]
-interleave = todo
+interleave [] b = b
+interleave a [] = a
+interleave (x : xs) (y : ys) = x : y : interleave xs ys
 
 ------------------------------------------------------------------------------
 -- Ex 3: Deal out cards. Given a list of players (strings), and a list
@@ -55,8 +58,11 @@ interleave = todo
 --
 -- Hint: remember the functions cycle and zip?
 
-deal :: [String] -> [String] -> [(String,String)]
-deal = todo
+deal :: [String] -> [String] -> [(String, String)]
+deal players cards = go (cycle players) cards
+  where
+    go _ [] = []
+    go (p : ps) (c : cs) = (c, p) : go ps cs
 
 ------------------------------------------------------------------------------
 -- Ex 4: Compute a running average. Go through a list of Doubles and
@@ -71,10 +77,18 @@ deal = todo
 --   averages [3,2,1] ==> [3.0,2.5,2.0]
 --   take 10 (averages [1..]) ==> [1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5]
 
-
+myfoldl :: (a -> b -> a) -> a -> [b] -> a
+myfoldl f z [] = z
+myfoldl f z (x : xs) =
+  let uio = f z x
+   in seq uio (myfoldl f uio xs)
 
 averages :: [Double] -> [Double]
-averages = todo
+averages numbers = foldl myfolder [] numbers
+  where
+    myfolder :: [Double] -> Double -> [Double]
+    myfolder [] n = [n]
+    myfolder s n = s ++ [(last s * fromIntegral (length s) + n) / (fromIntegral (length s) + 1)]
 
 ------------------------------------------------------------------------------
 -- Ex 5: Given two lists, xs and ys, and an element z, generate an
@@ -164,7 +178,7 @@ ignorecase = todo
 --   play maze ["Left","Left","Right"]
 --      ==> ["Maze","Deeper in the maze","Elsewhere in the maze","Deeper in the maze"]
 
-data Room = Room String [(String,Room)]
+data Room = Room String [(String, Room)]
 
 -- Do not modify describe, move or play. The tests will use the
 -- original definitions of describe, move and play regardless of your
@@ -178,8 +192,9 @@ move (Room _ directions) direction = lookup direction directions
 
 play :: Room -> [String] -> [String]
 play room [] = [describe room]
-play room (d:ds) = case move room d of Nothing -> [describe room]
-                                       Just r -> describe room : play r ds
+play room (d : ds) = case move room d of
+  Nothing -> [describe room]
+  Just r -> describe room : play r ds
 
 maze :: Room
 maze = todo
