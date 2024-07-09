@@ -77,18 +77,11 @@ deal players cards = go (cycle players) cards
 --   averages [3,2,1] ==> [3.0,2.5,2.0]
 --   take 10 (averages [1..]) ==> [1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5]
 
-myfoldl :: (a -> b -> a) -> a -> [b] -> a
-myfoldl f z [] = z
-myfoldl f z (x : xs) =
-  let uio = f z x
-   in seq uio (myfoldl f uio xs)
-
 averages :: [Double] -> [Double]
-averages numbers = foldl myfolder [] numbers
+averages numbers = zipWith (/) totals counts
   where
-    myfolder :: [Double] -> Double -> [Double]
-    myfolder [] n = [n]
-    myfolder s n = s ++ [(last s * fromIntegral (length s) + n) / (fromIntegral (length s) + 1)]
+    totals = scanl1 (+) numbers
+    counts = map fromIntegral [1 ..]
 
 ------------------------------------------------------------------------------
 -- Ex 5: Given two lists, xs and ys, and an element z, generate an
@@ -106,7 +99,7 @@ averages numbers = foldl myfolder [] numbers
 --   take 10 (alternate [1,2] [3,4,5] 0) ==> [1,2,0,3,4,5,0,1,2,0]
 
 alternate :: [a] -> [a] -> a -> [a]
-alternate xs ys z = todo
+alternate xs ys z = cycle (xs ++ z : ys ++ [z])
 
 ------------------------------------------------------------------------------
 -- Ex 6: Check if the length of a list is at least n. Make sure your
@@ -118,7 +111,12 @@ alternate xs ys z = todo
 --   lengthAtLeast 10 [0..]  ==> True
 
 lengthAtLeast :: Int -> [a] -> Bool
-lengthAtLeast = todo
+lengthAtLeast n s = go 0 n s
+  where
+    go acc n [] = acc >= n
+    go acc n (x : xs)
+      | acc >= n = True
+      | otherwise = go (acc + 1) n xs
 
 ------------------------------------------------------------------------------
 -- Ex 7: The function chunks should take in a list, and a number n,
@@ -136,7 +134,9 @@ lengthAtLeast = todo
 --   take 4 (chunks 3 [0..]) ==> [[0,1,2],[1,2,3],[2,3,4],[3,4,5]]
 
 chunks :: Int -> [a] -> [[a]]
-chunks = todo
+chunks n s
+  | lengthAtLeast n s = take n s : chunks n (tail s)
+  | otherwise = []
 
 ------------------------------------------------------------------------------
 -- Ex 8: Define a newtype called IgnoreCase, that wraps a value of
@@ -152,7 +152,12 @@ chunks = todo
 --   ignorecase "abC" == ignorecase "ABc"  ==>  True
 --   ignorecase "acC" == ignorecase "ABc"  ==>  False
 
-ignorecase = todo
+newtype IgnoreCase = IgnoreCase String
+
+instance Eq IgnoreCase where
+  IgnoreCase x == IgnoreCase y = map toLower x == map toLower y
+
+ignorecase s = IgnoreCase s
 
 ------------------------------------------------------------------------------
 -- Ex 9: Here's the Room type and some helper functions from the
